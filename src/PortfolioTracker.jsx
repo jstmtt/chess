@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  LineChart,
+  Area,
+  ComposedChart,
   Line,
   XAxis,
   YAxis,
@@ -11,14 +12,25 @@ import {
 } from "recharts";
 
 const PLAYERS = [
-  { username: "jstmtt", label: "You", color: "#5DADE2" },
-  { username: "addiprice03", label: "Addi", color: "#58D68D" },
-  { username: "jessicasimian", label: "Jessica", color: "#F5B041" },
+  { username: "jstmtt", label: "You", color: "#43B0F1", areaOpacity: 0.22 },
+  { username: "addiprice03", label: "Addi", color: "#39d98a", areaOpacity: 0.2 },
+  { username: "jessicasimian", label: "Jessica", color: "#ff3d7f", areaOpacity: 0.24 },
 ];
-
 
 function toIsoDate(epochSeconds) {
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+}
+
+function formatShortDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+
+function formatTooltipDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 async function fetchJson(url) {
@@ -70,17 +82,25 @@ function mergeSeries(seriesByUser) {
   });
 
   const sortedDates = [...allDates].sort();
+  const pointerByUser = Object.fromEntries(PLAYERS.map((p) => [p.username, 0]));
   const lastSeen = {};
 
   return sortedDates.map((date) => {
     const row = { date };
+
     for (const player of PLAYERS) {
-      const todayEntry = seriesByUser[player.username]?.find((e) => e.date === date);
-      if (todayEntry) {
-        lastSeen[player.username] = todayEntry.rating;
+      const series = seriesByUser[player.username] || [];
+      let pointer = pointerByUser[player.username];
+
+      while (pointer < series.length && series[pointer].date <= date) {
+        lastSeen[player.username] = series[pointer].rating;
+        pointer += 1;
       }
+
+      pointerByUser[player.username] = pointer;
       row[player.username] = lastSeen[player.username] ?? null;
     }
+
     return row;
   });
 }
@@ -92,12 +112,50 @@ function nextMidnightDelay() {
   return Math.max(1000, next.getTime() - now.getTime());
 }
 
+function AnimatedNumber({ value, duration = 1200 }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const previousValueRef = useRef(value);
+
+  useEffect(() => {
+    const startValue = previousValueRef.current;
+    const endValue = value;
+
+    if (startValue === endValue) {
+      setDisplayValue(endValue);
+      return;
+    }
+
+    const startTime = performance.now();
+    let frameId;
+
+    const animate = (now) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const nextValue = startValue + (endValue - startValue) * eased;
+      setDisplayValue(nextValue);
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    frameId = requestAnimationFrame(animate);
+    previousValueRef.current = endValue;
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [value, duration]);
+
+  return Math.round(displayValue).toLocaleString();
+}
+
 function StatCard({ title, value, subtitle, color }) {
   return (
     <div className="stat-card" style={{ borderColor: `${color}66` }}>
       <p className="stat-title">{title}</p>
       <p className="stat-value" style={{ color }}>
-        {value}
+        {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
       </p>
       <p className="stat-subtitle">{subtitle}</p>
     </div>
@@ -121,14 +179,23 @@ export default function PortfolioTracker() {
             fetchRapidHistory(player.username),
             fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`),
           ]);
+
+          const historyBest = history.reduce(
+            (best, point) => Math.max(best, point.rating),
+            Number.NEGATIVE_INFINITY
+          );
+          const statsBest = stats.chess_rapid?.best?.rating;
+          const bestRating = [statsBest, historyBest]
+            .filter((rating) => Number.isFinite(rating))
+            .reduce((best, rating) => Math.max(best, rating), Number.NEGATIVE_INFINITY);
+
           return [
             player.username,
             {
               history,
               profile: {
                 current: stats.chess_rapid?.last?.rating ?? null,
-                best: stats.chess_rapid?.best?.rating ?? null,
-                record: stats.chess_rapid?.record ?? null,
+                best: Number.isFinite(bestRating) ? bestRating : null,
               },
             },
           ];
@@ -157,17 +224,12 @@ export default function PortfolioTracker() {
   }, [loadAllData]);
 
   useEffect(() => {
-    const tick = () => {
-      const timeoutId = setTimeout(async () => {
-        await loadAllData();
-        tick();
-      }, nextMidnightDelay());
-      return timeoutId;
-    };
+    const timeoutId = setTimeout(async () => {
+      await loadAllData();
+    }, nextMidnightDelay());
 
-    const timeoutId = tick();
     return () => clearTimeout(timeoutId);
-  }, [loadAllData]);
+  }, [loadAllData, lastUpdated]);
 
   const chartData = useMemo(() => mergeSeries(seriesByUser), [seriesByUser]);
 
@@ -224,15 +286,44 @@ export default function PortfolioTracker() {
 
         <section className="chart-panel">
           <ResponsiveContainer width="100%" height={430}>
-            <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#293142" />
-              <XAxis dataKey="date" minTickGap={40} stroke="#93A4BA" />
-              <YAxis stroke="#93A4BA" domain={["dataMin - 30", "dataMax + 30"]} />
+            <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <defs>
+                {PLAYERS.map((player) => (
+                  <linearGradient key={player.username} id={`fill-${player.username}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={player.color} stopOpacity={player.areaOpacity} />
+                    <stop offset="100%" stopColor={player.color} stopOpacity={0} />
+                  </linearGradient>
+                ))}
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" stroke="#293142" vertical={false} />
+              <XAxis
+                dataKey="date"
+                minTickGap={40}
+                tickFormatter={formatShortDate}
+                stroke="#93A4BA"
+              />
+              <YAxis stroke="#93A4BA" domain={[0, "dataMax + 40"]} />
               <Tooltip
+                labelFormatter={formatTooltipDate}
                 contentStyle={{ background: "#111827", border: "1px solid #293142" }}
                 labelStyle={{ color: "#d1d5db" }}
               />
               <Legend />
+
+              {PLAYERS.map((player) => (
+                <Area
+                  key={`${player.username}-area`}
+                  type="monotone"
+                  dataKey={player.username}
+                  stroke="none"
+                  fill={`url(#fill-${player.username})`}
+                  connectNulls
+                  isAnimationActive
+                  animationDuration={1400}
+                />
+              ))}
+
               {PLAYERS.map((player) => (
                 <Line
                   key={player.username}
@@ -240,12 +331,14 @@ export default function PortfolioTracker() {
                   dataKey={player.username}
                   name={player.label}
                   stroke={player.color}
-                  strokeWidth={2.2}
+                  strokeWidth={2.3}
                   dot={false}
                   connectNulls
+                  isAnimationActive
+                  animationDuration={1300}
                 />
               ))}
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </section>
 
