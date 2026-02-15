@@ -113,42 +113,56 @@ function nextMidnightDelay() {
 }
 
 function AnimatedNumber({ value, duration = 1200 }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const previousValueRef = useRef(value);
+  const [displayValue, setDisplayValue] = useState(0);
+  const prevValueRef = useRef(0);
 
   useEffect(() => {
-    const startValue = previousValueRef.current;
+    let animationFrame;
+    let startValue = prevValueRef.current;
     const endValue = value;
 
+    if (startValue == null || Number.isNaN(startValue)) {
+      startValue = 0;
+    }
+
     if (startValue === endValue) {
+      prevValueRef.current = value;
       setDisplayValue(endValue);
       return;
     }
 
-    const startTime = performance.now();
-    let frameId;
+    if (Math.abs(endValue - startValue) < 2) {
+      setDisplayValue(endValue);
+      prevValueRef.current = value;
+      return;
+    }
 
-    const animate = (now) => {
-      const progress = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const nextValue = startValue + (endValue - startValue) * eased;
-      setDisplayValue(nextValue);
+    const startTime = performance.now();
+
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+
+      const current = startValue + (endValue - startValue) * ease;
+      setDisplayValue(current);
 
       if (progress < 1) {
-        frameId = requestAnimationFrame(animate);
+        animationFrame = requestAnimationFrame(animate);
       }
     };
 
-    frameId = requestAnimationFrame(animate);
-    previousValueRef.current = endValue;
+    animationFrame = requestAnimationFrame(animate);
 
+    prevValueRef.current = value;
     return () => {
-      if (frameId) cancelAnimationFrame(frameId);
+      if (animationFrame) cancelAnimationFrame(animationFrame);
     };
   }, [value, duration]);
 
   return Math.round(displayValue).toLocaleString();
 }
+
 
 function StatCard({ title, value, subtitle, color }) {
   return (
@@ -321,6 +335,7 @@ export default function PortfolioTracker() {
                   connectNulls
                   isAnimationActive
                   animationDuration={1400}
+                  legendType="none"
                 />
               ))}
 
