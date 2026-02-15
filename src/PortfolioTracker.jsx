@@ -249,30 +249,26 @@ function AnimatedNumber({ value, duration = 1200 }) {
 function CustomTooltip({ active, label, payload }) {
   if (!active || !Array.isArray(payload) || payload.length === 0) return null;
 
-  const deduped = [];
-  const seen = new Set();
-
+  const payloadByKey = new Map();
   payload.forEach((item) => {
     const key = item?.dataKey;
-    if (!key || seen.has(key)) return;
-    if (item?.value == null) return;
-    seen.add(key);
-
-    const player = PLAYERS.find((entry) => entry.username === key);
-    deduped.push({
-      key,
-      color: item?.color || player?.color || "#e5e7eb",
-      label: player?.label || item?.name || key,
-      value: item.value,
-    });
+    if (!key || item?.value == null) return;
+    if (!payloadByKey.has(key)) payloadByKey.set(key, item.value);
   });
 
-  if (deduped.length === 0) return null;
+  const rows = PLAYERS.filter((player) => payloadByKey.has(player.username)).map((player) => ({
+    key: player.username,
+    label: player.label,
+    color: player.color,
+    value: payloadByKey.get(player.username),
+  }));
+
+  if (rows.length === 0) return null;
 
   return (
     <div style={{ background: "#111827", border: "1px solid #293142", padding: "10px 12px" }}>
       <div style={{ color: "#d1d5db", marginBottom: 6 }}>{formatTooltipDate(label)}</div>
-      {deduped.map((entry) => (
+      {rows.map((entry) => (
         <div key={entry.key} style={{ color: entry.color, fontWeight: 700, marginBottom: 4 }}>
           {entry.label}: {entry.value}
         </div>
@@ -280,6 +276,7 @@ function CustomTooltip({ active, label, payload }) {
     </div>
   );
 }
+
 
 function StatCard({ title, value, subtitle, color }) {
   return (
@@ -289,6 +286,27 @@ function StatCard({ title, value, subtitle, color }) {
         {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
       </p>
       <p className="stat-subtitle">{subtitle}</p>
+    </div>
+  );
+}
+
+function SkeletonCard({ color }) {
+  return (
+    <div className="stat-card skeleton-card" style={{ borderColor: `${color}55` }}>
+      <div className="skeleton-line skeleton-title" />
+      <div className="skeleton-line skeleton-value" />
+      <div className="skeleton-line skeleton-subtitle" />
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="chart-skeleton" aria-hidden="true">
+      <div className="chart-skeleton-grid" />
+      <div className="chart-skeleton-grid" />
+      <div className="chart-skeleton-grid" />
+      <div className="chart-skeleton-shimmer" />
     </div>
   );
 }
@@ -364,7 +382,7 @@ export default function PortfolioTracker() {
   }, [loadAllData, lastUpdated]);
 
   const chartData = useMemo(() => mergeSeries(seriesByUser), [seriesByUser]);
-
+  const showSkeleton = loading && chartData.length === 0;
 
   const activePlayers = useMemo(
     () => PLAYERS.filter((player) => !hiddenPlayers.has(player.username)),
@@ -424,27 +442,29 @@ export default function PortfolioTracker() {
         {error ? <div className="error">{error}</div> : null}
 
         <section className="stats-grid">
-          {PLAYERS.map((player) => {
-            const latest = latestByPlayer[player.username];
-            const profile = profiles[player.username] || {};
-            const first = (seriesByUser[player.username] || [])[0];
-            const gain = latest && first ? latest.rating - first.rating : null;
-            return (
-              <StatCard
-                key={player.username}
-                title={`${player.label} (@${player.username})`}
-                value={latest ? latest.rating : "—"}
-                subtitle={
-                  latest
-                    ? `Best ${profile.best ?? "—"} • Net ${gain >= 0 ? "+" : ""}${
-                        gain ?? "—"
-                      }`
-                    : "No rapid games found"
-                }
-                color={player.color}
-              />
-            );
-          })}
+          {showSkeleton
+            ? PLAYERS.map((player) => <SkeletonCard key={player.username} color={player.color} />)
+            : PLAYERS.map((player) => {
+                const latest = latestByPlayer[player.username];
+                const profile = profiles[player.username] || {};
+                const first = (seriesByUser[player.username] || [])[0];
+                const gain = latest && first ? latest.rating - first.rating : null;
+                return (
+                  <StatCard
+                    key={player.username}
+                    title={`${player.label} (@${player.username})`}
+                    value={latest ? latest.rating : "—"}
+                    subtitle={
+                      latest
+                        ? `Best ${profile.best ?? "—"} • Net ${gain >= 0 ? "+" : ""}${
+                            gain ?? "—"
+                          }`
+                        : "No rapid games found"
+                    }
+                    color={player.color}
+                  />
+                );
+              })}
         </section>
 
         <section className="chart-panel">
@@ -458,6 +478,7 @@ export default function PortfolioTracker() {
                   className={`player-chip ${hidden ? "hidden" : ""}`}
                   onClick={() => togglePlayer(player.username)}
                   aria-pressed={!hidden}
+                  disabled={showSkeleton}
                 >
                   <span className="player-chip-dot" style={{ background: player.color }} />
                   {player.label}
@@ -466,56 +487,60 @@ export default function PortfolioTracker() {
             })}
           </div>
 
-          <ResponsiveContainer width="100%" height={430}>
-            <ComposedChart data={chartDataForView} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <defs>
+          {showSkeleton ? (
+            <ChartSkeleton />
+          ) : (
+            <ResponsiveContainer width="100%" height={430}>
+              <ComposedChart data={chartDataForView} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  {activePlayers.map((player) => (
+                    <linearGradient key={player.username} id={`fill-${player.username}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={player.color} stopOpacity={player.areaOpacity} />
+                      <stop offset="100%" stopColor={player.color} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+                </defs>
+
+                <CartesianGrid strokeDasharray="3 3" stroke="#293142" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  minTickGap={40}
+                  tickFormatter={formatShortDate}
+                  stroke="#93A4BA"
+                />
+                <YAxis stroke="#93A4BA" domain={[0, "dataMax + 40"]} />
+                <Tooltip content={<CustomTooltip />} />
                 {activePlayers.map((player) => (
-                  <linearGradient key={player.username} id={`fill-${player.username}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={player.color} stopOpacity={player.areaOpacity} />
-                    <stop offset="100%" stopColor={player.color} stopOpacity={0} />
-                  </linearGradient>
+                  <Area
+                    key={`${player.username}-area`}
+                    type="monotone"
+                    dataKey={player.username}
+                    stroke="none"
+                    fill={`url(#fill-${player.username})`}
+                    connectNulls
+                    isAnimationActive
+                    animationDuration={1400}
+                    legendType="none"
+                  />
                 ))}
-              </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="#293142" vertical={false} />
-              <XAxis
-                dataKey="date"
-                minTickGap={40}
-                tickFormatter={formatShortDate}
-                stroke="#93A4BA"
-              />
-              <YAxis stroke="#93A4BA" domain={[0, "dataMax + 40"]} />
-              <Tooltip content={<CustomTooltip />} />
-              {activePlayers.map((player) => (
-                <Area
-                  key={`${player.username}-area`}
-                  type="monotone"
-                  dataKey={player.username}
-                  stroke="none"
-                  fill={`url(#fill-${player.username})`}
-                  connectNulls
-                  isAnimationActive
-                  animationDuration={1400}
-                  legendType="none"
-                />
-              ))}
-
-              {activePlayers.map((player) => (
-                <Line
-                  key={player.username}
-                  type="monotone"
-                  dataKey={player.username}
-                  name={player.label}
-                  stroke={player.color}
-                  strokeWidth={2.3}
-                  dot={false}
-                  connectNulls
-                  isAnimationActive
-                  animationDuration={1300}
-                />
-              ))}
-            </ComposedChart>
-          </ResponsiveContainer>
+                {activePlayers.map((player) => (
+                  <Line
+                    key={player.username}
+                    type="monotone"
+                    dataKey={player.username}
+                    name={player.label}
+                    stroke={player.color}
+                    strokeWidth={2.3}
+                    dot={false}
+                    connectNulls
+                    isAnimationActive
+                    animationDuration={1300}
+                  />
+                ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </section>
 
       </div>

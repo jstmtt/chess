@@ -156,3 +156,71 @@ body {
   height: 8px;
   border-radius: 999px;
 }
+
+
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-line {
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.14), rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.14));
+  background-size: 220% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeleton-title {
+  width: 45%;
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeleton-value {
+  width: 38%;
+  height: 42px;
+  margin-bottom: 14px;
+}
+
+.skeleton-subtitle {
+  width: 60%;
+  height: 14px;
+}
+
+.chart-skeleton {
+  position: relative;
+  height: 430px;
+  border-radius: 12px;
+  background: rgba(8, 18, 42, 0.55);
+  overflow: hidden;
+}
+
+.chart-skeleton-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.chart-skeleton-grid:nth-child(1) { top: 22%; }
+.chart-skeleton-grid:nth-child(2) { top: 48%; }
+.chart-skeleton-grid:nth-child(3) { top: 74%; }
+
+.chart-skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(148, 163, 184, 0.03) 35%, rgba(148, 163, 184, 0.18) 50%, rgba(148, 163, 184, 0.03) 65%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+.player-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
