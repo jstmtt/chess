@@ -107,7 +107,8 @@ function mergeSeries(seriesByUser) {
 function nextMidnightDelay() {
   const now = new Date();
   const next = new Date(now);
-  next.setHours(24, 0, 10, 0);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 10, 0);
   return Math.max(1000, next.getTime() - now.getTime());
 }
 
