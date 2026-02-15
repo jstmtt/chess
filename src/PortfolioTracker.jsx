@@ -426,6 +426,9 @@ export default function PortfolioTracker() {
     [hiddenPlayers]
   );
 
+  const themePlayer = activePlayers[0] || PLAYERS[0];
+  const themeAccent = themePlayer.color;
+
   const chartDataForView = useMemo(() => {
     return timeframeData.map((row) => {
       const next = { ...row };
@@ -437,6 +440,43 @@ export default function PortfolioTracker() {
       return next;
     });
   }, [timeframeData, hiddenPlayers]);
+
+  const yAxisDomain = useMemo(() => {
+    const values = [];
+    chartDataForView.forEach((row) => {
+      activePlayers.forEach((player) => {
+        const value = row[player.username];
+        if (typeof value === "number") {
+          values.push(value);
+        }
+      });
+    });
+
+    if (!values.length) return [0, 2000];
+
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const lower = Math.max(0, Math.floor((minValue - 40) / 100) * 100);
+    let upper = Math.ceil((maxValue + 40) / 100) * 100;
+    if (upper <= lower) upper = lower + 100;
+
+    return [lower, upper];
+  }, [chartDataForView, activePlayers]);
+
+  const lastPointIndexByPlayer = useMemo(() => {
+    const indexes = {};
+    activePlayers.forEach((player) => {
+      let lastIndex = -1;
+      for (let i = chartDataForView.length - 1; i >= 0; i -= 1) {
+        if (typeof chartDataForView[i][player.username] === "number") {
+          lastIndex = i;
+          break;
+        }
+      }
+      indexes[player.username] = lastIndex;
+    });
+    return indexes;
+  }, [chartDataForView, activePlayers]);
 
   const togglePlayer = useCallback((username) => {
     setHiddenPlayers((prev) => {
@@ -469,7 +509,7 @@ export default function PortfolioTracker() {
       <div className="container">
         <header className="header">
           <div>
-            <h1>Chess Rapid Rating Tracker</h1>
+            <h1 style={{ color: themeAccent }}>Chess Rapid Rating Tracker</h1>
           </div>
           <button className="refresh-button" onClick={loadAllData} disabled={loading}>
             {loading ? "Syncing..." : "Refresh now"}
@@ -511,6 +551,7 @@ export default function PortfolioTracker() {
                 key={option.key}
                 type="button"
                 className={`timeframe-chip ${timeframe === option.key ? "active" : ""}`}
+                style={timeframe === option.key ? { borderColor: themeAccent, boxShadow: `0 0 0 1px ${themeAccent}66 inset` } : undefined}
                 onClick={() => setTimeframe(option.key)}
                 disabled={showSkeleton}
                 aria-pressed={timeframe === option.key}
@@ -542,7 +583,7 @@ export default function PortfolioTracker() {
           {showSkeleton ? (
             <ChartSkeleton />
           ) : (
-            <ResponsiveContainer width="100%" height={430}>
+            <ResponsiveContainer width="100%" height={500}>
               <ComposedChart data={chartDataForView} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   {activePlayers.map((player) => (
@@ -560,7 +601,7 @@ export default function PortfolioTracker() {
                   tickFormatter={formatShortDate}
                   stroke="#93A4BA"
                 />
-                <YAxis stroke="#93A4BA" domain={[0, "dataMax + 40"]} />
+                <YAxis stroke="#93A4BA" domain={yAxisDomain} />
                 <Tooltip content={<CustomTooltip />} />
                 {activePlayers.map((player) => (
                   <Area
@@ -584,7 +625,19 @@ export default function PortfolioTracker() {
                     name={player.label}
                     stroke={player.color}
                     strokeWidth={2.3}
-                    dot={false}
+                    dot={(props) => {
+                      const isLast = props.index === lastPointIndexByPlayer[player.username];
+                      if (!isLast) {
+                        return <circle cx={props.cx} cy={props.cy} r={0} />;
+                      }
+
+                      return (
+                        <g>
+                          <circle className="pulse-dot" cx={props.cx} cy={props.cy} r={10} fill={player.color} opacity={0.25} />
+                          <circle cx={props.cx} cy={props.cy} r={4} fill={player.color} stroke="#ffffff" strokeWidth={1.3} />
+                        </g>
+                      );
+                    }}
                     connectNulls
                     isAnimationActive
                     animationDuration={1300}
