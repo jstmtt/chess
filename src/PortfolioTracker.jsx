@@ -297,10 +297,6 @@ export default function PortfolioTracker() {
         <header className="header">
           <div>
             <h1>Chess Rapid Rating Tracker</h1>
-            <p>
-              Daily ratings pulled from Chess.com game archives. The data refreshes automatically
-              shortly after midnight, and you can trigger a manual sync any time.
-            </p>
           </div>
           <button className="refresh-button" onClick={loadAllData} disabled={loading}>
             {loading ? "Syncing..." : "Refresh now"}
@@ -408,13 +404,6 @@ export default function PortfolioTracker() {
           </ResponsiveContainer>
         </section>
 
-        <footer className="footer">
-          <span>
-            Last synced: {lastUpdated ? lastUpdated.toLocaleString() : "—"} • Data points: {" "}
-            {chartData.length}
-          </span>
-          <span>Source: Chess.com public API (rapid rated games)</span>
-        </footer>
       </div>
     </main>
   );
