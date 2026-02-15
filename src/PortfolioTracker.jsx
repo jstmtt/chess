@@ -48,15 +48,17 @@ async function fetchRapidHistory(username) {
 
   const historyMap = new Map();
 
-  for (const archiveUrl of archives) {
-    const gamesData = await fetchJson(archiveUrl);
+  const lowerUsername = username.toLowerCase();
+  const allArchivesGames = await Promise.all(archives.map((url) => fetchJson(url)));
+
+  for (const gamesData of allArchivesGames) {
     const rapidGames = (gamesData.games || [])
       .filter((game) => game.time_class === "rapid" && game.rated)
       .sort((a, b) => a.end_time - b.end_time);
 
     for (const game of rapidGames) {
-      const isWhite = game.white?.username?.toLowerCase() === username;
-      const isBlack = game.black?.username?.toLowerCase() === username;
+      const isWhite = game.white?.username?.toLowerCase() === lowerUsername;
+      const isBlack = game.black?.username?.toLowerCase() === lowerUsername;
       const color = isWhite ? "white" : isBlack ? "black" : null;
       if (!color) continue;
 
