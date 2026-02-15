@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -182,6 +181,7 @@ export default function PortfolioTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [hiddenPlayers, setHiddenPlayers] = useState(new Set());
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -247,6 +247,41 @@ export default function PortfolioTracker() {
 
   const chartData = useMemo(() => mergeSeries(seriesByUser), [seriesByUser]);
 
+
+  const activePlayers = useMemo(
+    () => PLAYERS.filter((player) => !hiddenPlayers.has(player.username)),
+    [hiddenPlayers]
+  );
+
+  const chartDataForView = useMemo(() => {
+    return chartData.map((row) => {
+      const next = { ...row };
+      for (const player of PLAYERS) {
+        if (hiddenPlayers.has(player.username)) {
+          next[player.username] = null;
+        }
+      }
+      return next;
+    });
+  }, [chartData, hiddenPlayers]);
+
+  const togglePlayer = useCallback((username) => {
+    setHiddenPlayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+        return next;
+      }
+
+      if (PLAYERS.length - next.size <= 1) {
+        return prev;
+      }
+
+      next.add(username);
+      return next;
+    });
+  }, []);
+
   const latestByPlayer = useMemo(() => {
     const summary = {};
     for (const player of PLAYERS) {
@@ -299,10 +334,28 @@ export default function PortfolioTracker() {
         </section>
 
         <section className="chart-panel">
+          <div className="player-chips" role="group" aria-label="Toggle players">
+            {PLAYERS.map((player) => {
+              const hidden = hiddenPlayers.has(player.username);
+              return (
+                <button
+                  key={player.username}
+                  type="button"
+                  className={`player-chip ${hidden ? "hidden" : ""}`}
+                  onClick={() => togglePlayer(player.username)}
+                  aria-pressed={!hidden}
+                >
+                  <span className="player-chip-dot" style={{ background: player.color }} />
+                  {player.label}
+                </button>
+              );
+            })}
+          </div>
+
           <ResponsiveContainer width="100%" height={430}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartDataForView} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <defs>
-                {PLAYERS.map((player) => (
+                {activePlayers.map((player) => (
                   <linearGradient key={player.username} id={`fill-${player.username}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={player.color} stopOpacity={player.areaOpacity} />
                     <stop offset="100%" stopColor={player.color} stopOpacity={0} />
@@ -323,9 +376,7 @@ export default function PortfolioTracker() {
                 contentStyle={{ background: "#111827", border: "1px solid #293142" }}
                 labelStyle={{ color: "#d1d5db" }}
               />
-              <Legend />
-
-              {PLAYERS.map((player) => (
+              {activePlayers.map((player) => (
                 <Area
                   key={`${player.username}-area`}
                   type="monotone"
@@ -339,7 +390,7 @@ export default function PortfolioTracker() {
                 />
               ))}
 
-              {PLAYERS.map((player) => (
+              {activePlayers.map((player) => (
                 <Line
                   key={player.username}
                   type="monotone"

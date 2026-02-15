@@ -117,3 +117,42 @@ body {
   gap: 10px;
   font-size: 0.9rem;
 }
+
+
+.player-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.player-chip.hidden {
+  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.player-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
