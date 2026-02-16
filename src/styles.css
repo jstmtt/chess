@@ -264,10 +264,21 @@ body {
 
 .pulse-dot {
   animation: pulseDot 1.9s ease-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 @keyframes pulseDot {
-  0% { transform: scale(0.85); opacity: 0.18; }
-  60% { transform: scale(1.25); opacity: 0.32; }
-  100% { transform: scale(1.55); opacity: 0; }
+  0% { 
+    transform: scale(0.85); 
+    opacity: 0.18; 
+  }
+  60% { 
+    transform: scale(1.25); 
+    opacity: 0.32; 
+  }
+  100% { 
+    transform: scale(1.55); 
+    opacity: 0; 
+  }
 }
