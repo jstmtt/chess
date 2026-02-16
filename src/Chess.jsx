@@ -465,7 +465,7 @@ export default function Chess() {
                   <StatCard
                     key={player.username}
                     player={player}
-                    value={latest ? latest.rating : "—"}
+                    value={profile.current ?? (latest ? latest.rating : "-")}
                     profile={profile}
                     subtitle={
                       latest
