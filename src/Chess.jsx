@@ -21,6 +21,11 @@ import {
 } from "./utils/series";
 import { formatShortDate, formatTooltipDate } from "./utils/formatting";
 
+const INTERACTION_ANIM_DURATION = 1400;
+const INTERACTION_ANIM_RESET_DELAY = 1500;
+const DATA_REFRESH_ANIM_DURATION = 2800;
+const DATA_REFRESH_ANIM_RESET_DELAY = 3000;
+
 function nextMidnightDelay() {
   const now = new Date();
   const next = new Date(now);
@@ -155,8 +160,22 @@ export default function Chess() {
   const [hiddenPlayers, setHiddenPlayers] = useState(new Set());
   const [timeframe, setTimeframe] = useState("all");
   const [chartAnimDuration, setChartAnimDuration] = useState(0);
+  const [chartAnimationCycle, setChartAnimationCycle] = useState(0);
   const chartContainerRef = useRef(null);
-  const brushInteractionTimeoutRef = useRef(null);
+  const chartAnimTimeoutRef = useRef(null);
+  const hasInteractionAnimationMountedRef = useRef(false);
+
+  const startChartAnimation = useCallback((duration, resetDelay) => {
+    setChartAnimDuration(duration);
+
+    if (chartAnimTimeoutRef.current) {
+      clearTimeout(chartAnimTimeoutRef.current);
+    }
+
+    chartAnimTimeoutRef.current = setTimeout(() => {
+      setChartAnimDuration(0);
+    }, resetDelay);
+  }, []);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -198,6 +217,8 @@ export default function Chess() {
         nextProfiles[username] = payload.profile;
       });
 
+      startChartAnimation(DATA_REFRESH_ANIM_DURATION, DATA_REFRESH_ANIM_RESET_DELAY);
+      setChartAnimationCycle((prev) => prev + 1);
       setSeriesByUser(nextSeries);
       setProfiles(nextProfiles);
       setLastUpdated(new Date());
@@ -206,7 +227,7 @@ export default function Chess() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [startChartAnimation]);
 
   useEffect(() => {
     loadAllData();
@@ -221,24 +242,17 @@ export default function Chess() {
   }, [loadAllData, lastUpdated]);
 
   useEffect(() => {
-    setChartAnimDuration(1400);
-    const timer = setTimeout(() => {
-      setChartAnimDuration(0);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [timeframe, hiddenPlayers]);
+    if (!hasInteractionAnimationMountedRef.current) {
+      hasInteractionAnimationMountedRef.current = true;
+      return;
+    }
+
+    startChartAnimation(INTERACTION_ANIM_DURATION, INTERACTION_ANIM_RESET_DELAY);
+  }, [timeframe, hiddenPlayers, startChartAnimation]);
 
   useEffect(() => {
     const handleBrushInteraction = () => {
-      setChartAnimDuration(1400);
-
-      if (brushInteractionTimeoutRef.current) {
-        clearTimeout(brushInteractionTimeoutRef.current);
-      }
-
-      brushInteractionTimeoutRef.current = setTimeout(() => {
-        setChartAnimDuration(0);
-      }, 1500);
+      startChartAnimation(INTERACTION_ANIM_DURATION, INTERACTION_ANIM_RESET_DELAY);
     };
 
     const container = chartContainerRef.current;
@@ -250,11 +264,11 @@ export default function Chess() {
     return () => {
       container.removeEventListener("mousedown", handleBrushInteraction);
       container.removeEventListener("touchstart", handleBrushInteraction);
-      if (brushInteractionTimeoutRef.current) {
-        clearTimeout(brushInteractionTimeoutRef.current);
+      if (chartAnimTimeoutRef.current) {
+        clearTimeout(chartAnimTimeoutRef.current);
       }
     };
-  }, []);
+  }, [startChartAnimation]);
 
   const chartData = useMemo(() => mergeSeries(PLAYERS, seriesByUser), [seriesByUser]);
   const showSkeleton = loading && chartData.length === 0;
@@ -449,7 +463,7 @@ export default function Chess() {
 
                 {activePlayers.map((player) => (
                   <Area
-                    key={`${player.username}-area`}
+                    key={`${player.username}-area-${chartAnimationCycle}`}
                     type="monotone"
                     dataKey={player.username}
                     stroke="none"
@@ -463,7 +477,7 @@ export default function Chess() {
 
                 {activePlayers.map((player) => (
                   <Line
-                    key={player.username}
+                    key={`${player.username}-${chartAnimationCycle}`}
                     type="monotone"
                     dataKey={player.username}
                     name={player.label}
