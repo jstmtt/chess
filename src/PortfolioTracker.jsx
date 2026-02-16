@@ -319,7 +319,7 @@ function ChartSkeleton() {
   );
 }
 
-export default function PortfolioTracker() {
+export default function Chess() {
   const [seriesByUser, setSeriesByUser] = useState({});
   const [profiles, setProfiles] = useState({});
   const [loading, setLoading] = useState(true);
