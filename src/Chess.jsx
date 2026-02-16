@@ -84,8 +84,6 @@ function AnimatedNumber({ value, duration = 1200 }) {
   return Math.round(displayValue).toLocaleString();
 }
 
-
-
 function CustomTooltip({ active, label, payload }) {
   if (!active || !Array.isArray(payload) || payload.length === 0) return null;
 
@@ -116,7 +114,6 @@ function CustomTooltip({ active, label, payload }) {
     </div>
   );
 }
-
 
 function WinLossDrawDonut({ wins = 0, losses = 0, draws = 0 }) {
   const total = wins + losses + draws;
@@ -276,11 +273,21 @@ export default function Chess() {
     try {
       const entries = await Promise.all(
         PLAYERS.map(async (player) => {
+          // --- ROBUST FETCHING LOGIC ---
+          // 1. Critical Data: History, Stats, Profile Info (Let these throw if they fail)
+          const historyPromise = fetchRapidHistory(player.username);
+          const statsPromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`);
+          const profilePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}`);
+          
+          // 2. Non-Critical Data: Online Status (Catch errors so they don't crash the app)
+          const onlinePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online`)
+            .catch(() => ({ online: false })); // Default to offline if this specific request fails
+
           const [history, stats, profileData, onlineStatus] = await Promise.all([
-            fetchRapidHistory(player.username),
-            fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`),
-            fetchJson(`https://api.chess.com/pub/player/${player.username}`),
-            fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online`),
+            historyPromise,
+            statsPromise,
+            profilePromise,
+            onlinePromise,
           ]);
 
           const historyBest = history.reduce(
@@ -325,6 +332,7 @@ export default function Chess() {
       setProfiles(nextProfiles);
       setLastUpdated(new Date());
     } catch (e) {
+      console.error("Fetch error:", e);
       setError(e.message || "Failed to fetch Chess.com data.");
     } finally {
       setLoading(false);
