@@ -282,3 +282,29 @@ body {
     opacity: 0; 
   }
 }
+
+/* Range Selector (Brush) Styling */
+.recharts-brush-traveller {
+  cursor: ew-resize;
+}
+
+.recharts-brush-traveller rect {
+  fill: rgba(255, 255, 255, 0.1);
+  stroke: currentColor;
+  stroke-width: 2;
+  rx: 2;
+}
+
+.recharts-brush-traveller:hover rect {
+  fill: rgba(255, 255, 255, 0.2);
+}
+
+.recharts-brush-slide {
+  fill-opacity: 0.3;
+}
+
+.recharts-brush-texts text {
+  fill: #94a3b8;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
