@@ -177,7 +177,7 @@ function WinLossDrawDonut({ wins = 0, losses = 0, draws = 0 }) {
   );
 }
 
-function StatCard({ player, value, subtitle, color, profile }) {
+function StatCard({ player, value, best, gain, color, profile }) {
   const username = player.username;
   const label = player.label;
   const avatar = profile?.avatar;
@@ -208,7 +208,26 @@ function StatCard({ player, value, subtitle, color, profile }) {
           <p className="stat-value" style={{ color }}>
             {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
           </p>
-          <p className="stat-subtitle">{subtitle}</p>
+          
+          {/* NEW BADGE ROW */}
+          <div className="stat-badges">
+            {best && (
+              <div className="stat-badge peak">
+                <span className="badge-icon">👑</span> 
+                <span>Peak {best}</span>
+              </div>
+            )}
+            {typeof gain === 'number' && (
+              <div className={`stat-badge gain ${gain >= 0 ? 'pos' : 'neg'}`}>
+                <span className="badge-icon">{gain >= 0 ? '▲' : '▼'}</span>
+                <span>{Math.abs(gain)}</span>
+              </div>
+            )}
+            {!best && typeof gain !== 'number' && (
+              <span className="stat-subtitle">No data yet</span>
+            )}
+          </div>
+
         </div>
         <WinLossDrawDonut
           wins={record.win || 0}
@@ -273,15 +292,11 @@ export default function Chess() {
     try {
       const entries = await Promise.all(
         PLAYERS.map(async (player) => {
-          // --- ROBUST FETCHING LOGIC ---
-          // 1. Critical Data: History, Stats, Profile Info (Let these throw if they fail)
           const historyPromise = fetchRapidHistory(player.username);
           const statsPromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`);
           const profilePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}`);
-          
-          // 2. Non-Critical Data: Online Status (Catch errors so they don't crash the app)
           const onlinePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online`)
-            .catch(() => ({ online: false })); // Default to offline if this specific request fails
+            .catch(() => ({ online: false }));
 
           const [history, stats, profileData, onlineStatus] = await Promise.all([
             historyPromise,
@@ -454,8 +469,19 @@ export default function Chess() {
           <div>
             <h1 style={{ color: themeAccent }}>Chess Rapid Rating Tracker</h1>
           </div>
-          <button className="refresh-button" onClick={loadAllData} disabled={loading}>
-            {loading ? "Syncing..." : "Refresh now"}
+          <button 
+            className="refresh-button icon-only" 
+            onClick={loadAllData} 
+            disabled={loading}
+            title="Refresh Data"
+            aria-label="Refresh Data"
+          >
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "spin" : ""}>
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                <path d="M16 21h5v-5" />
+             </svg>
           </button>
         </header>
 
@@ -475,13 +501,8 @@ export default function Chess() {
                     player={player}
                     value={profile.current ?? (latest ? latest.rating : "-")}
                     profile={profile}
-                    subtitle={
-                      latest
-                        ? `Best ${profile.best ?? "—"} • Net ${gain >= 0 ? "+" : ""}${
-                            gain ?? "—"
-                          }`
-                        : "No rapid games found"
-                    }
+                    best={profile.best}
+                    gain={gain}
                     color={player.color}
                   />
                 );
