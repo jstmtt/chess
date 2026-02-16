@@ -118,14 +118,107 @@ function CustomTooltip({ active, label, payload }) {
 }
 
 
-function StatCard({ title, value, subtitle, color }) {
+function WinLossDrawDonut({ wins = 0, losses = 0, draws = 0 }) {
+  const total = wins + losses + draws;
+  const safeTotal = total > 0 ? total : 1;
+  const winPct = wins / safeTotal;
+  const lossPct = losses / safeTotal;
+  const drawPct = draws / safeTotal;
+
+  const radius = 15;
+  const strokeWidth = 6;
+  const size = 44;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const winLength = circumference * winPct;
+  const lossLength = circumference * lossPct;
+  const drawLength = circumference * drawPct;
+
+  return (
+    <div className="wld-wrap" title={`W:${wins} L:${losses} D:${draws}`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="wld-donut" aria-hidden="true">
+        <circle cx={cx} cy={cy} r={radius} className="wld-ring-bg" strokeWidth={strokeWidth} fill="none" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          className="wld-segment wld-win"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${winLength} ${circumference - winLength}`}
+          strokeDashoffset={0}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          className="wld-segment wld-loss"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${lossLength} ${circumference - lossLength}`}
+          strokeDashoffset={-winLength}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius}
+          className="wld-segment wld-draw"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${drawLength} ${circumference - drawLength}`}
+          strokeDashoffset={-(winLength + lossLength)}
+        />
+      </svg>
+      <div className="wld-counts">
+        <span className="wld-text w">W {wins}</span>
+        <span className="wld-text l">L {losses}</span>
+        <span className="wld-text d">D {draws}</span>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ player, value, subtitle, color, profile }) {
+  const username = player.username;
+  const label = player.label;
+  const avatar = profile?.avatar;
+  const online = Boolean(profile?.online);
+  const record = profile?.record || {};
+
   return (
     <div className="stat-card" style={{ borderColor: `${color}66` }}>
-      <p className="stat-title">{title}</p>
-      <p className="stat-value" style={{ color }}>
-        {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
-      </p>
-      <p className="stat-subtitle">{subtitle}</p>
+      <div className="stat-head-row">
+        <div className="stat-player-meta">
+          {avatar ? (
+            <img className="player-avatar" src={avatar} alt={`${label} avatar`} loading="lazy" />
+          ) : (
+            <div className="player-avatar-fallback" aria-hidden="true">
+              {label.slice(0, 1)}
+            </div>
+          )}
+          <p className="stat-title">{`${label} (@${username})`}</p>
+        </div>
+        <div className="status-wrap" title={online ? "Online" : "Offline"}>
+          <span className={`status-dot ${online ? "online" : "offline"}`} aria-hidden="true" />
+          <span className="status-label">{online ? "Online" : "Offline"}</span>
+        </div>
+      </div>
+
+      <div className="stat-main-row">
+        <div>
+          <p className="stat-value" style={{ color }}>
+            {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+          </p>
+          <p className="stat-subtitle">{subtitle}</p>
+        </div>
+        <WinLossDrawDonut
+          wins={record.win || 0}
+          losses={record.loss || 0}
+          draws={record.draw || 0}
+        />
+      </div>
     </div>
   );
 }
@@ -183,9 +276,11 @@ export default function Chess() {
     try {
       const entries = await Promise.all(
         PLAYERS.map(async (player) => {
-          const [history, stats] = await Promise.all([
+          const [history, stats, profileData, onlineStatus] = await Promise.all([
             fetchRapidHistory(player.username),
             fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`),
+            fetchJson(`https://api.chess.com/pub/player/${player.username}`),
+            fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online`),
           ]);
 
           const historyBest = history.reduce(
@@ -204,6 +299,13 @@ export default function Chess() {
               profile: {
                 current: stats.chess_rapid?.last?.rating ?? null,
                 best: Number.isFinite(bestRating) ? bestRating : null,
+                avatar: profileData?.avatar || null,
+                online: Boolean(onlineStatus?.online),
+                record: {
+                  win: stats.chess_rapid?.record?.win ?? 0,
+                  loss: stats.chess_rapid?.record?.loss ?? 0,
+                  draw: stats.chess_rapid?.record?.draw ?? 0,
+                },
               },
             },
           ];
@@ -362,8 +464,9 @@ export default function Chess() {
                 return (
                   <StatCard
                     key={player.username}
-                    title={`${player.label} (@${player.username})`}
-                    value={profile.current ?? (latest ? latest.rating : "—")}
+                    player={player}
+                    value={profile.current ?? (latest ? latest.rating : "-")}
+                    profile={profile}
                     subtitle={
                       latest
                         ? `Best ${profile.best ?? "—"} • Net ${gain >= 0 ? "+" : ""}${

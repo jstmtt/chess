@@ -100,6 +100,127 @@ body {
   color: #cbd5e1;
 }
 
+
+.stat-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stat-player-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.player-avatar,
+.player-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  flex: 0 0 32px;
+}
+
+.player-avatar {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  object-fit: cover;
+  background: #0b1228;
+}
+
+.player-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.65);
+  animation: statusPulseGreen 2.4s ease-in-out infinite;
+}
+
+.status-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  animation: statusPulseRed 2.6s ease-in-out infinite;
+}
+
+.stat-main-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wld-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wld-donut {
+  transform: rotate(-90deg);
+}
+
+.wld-ring-bg {
+  stroke: rgba(148, 163, 184, 0.25);
+}
+
+.wld-segment {
+  stroke-linecap: butt;
+}
+
+.wld-win {
+  stroke: #22c55e;
+}
+
+.wld-loss {
+  stroke: #ef4444;
+}
+
+.wld-draw {
+  stroke: #f59e0b;
+}
+
+.wld-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1;
+}
+
+.wld-text {
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.wld-text.w { color: #4ade80; }
+.wld-text.l { color: #f87171; }
+.wld-text.d { color: #fbbf24; }
+
 .chart-panel {
   background: rgba(15, 23, 42, 0.74);
   border: 1px solid #1e293b;
@@ -315,4 +436,15 @@ body {
   fill: #94a3b8;
   font-size: 11px;
   font-family: 'JetBrains Mono', monospace;
+}
+
+
+@keyframes statusPulseGreen {
+  0%, 100% { transform: scale(0.88); box-shadow: 0 0 8px rgba(34, 197, 94, 0.45); }
+  50% { transform: scale(1.24); box-shadow: 0 0 16px rgba(34, 197, 94, 0.9); }
+}
+
+@keyframes statusPulseRed {
+  0%, 100% { transform: scale(0.9); box-shadow: 0 0 7px rgba(239, 68, 68, 0.42); }
+  50% { transform: scale(1.2); box-shadow: 0 0 14px rgba(239, 68, 68, 0.78); }
 }
