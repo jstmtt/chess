@@ -527,47 +527,34 @@ export default function Chess() {
               })}
         </section>
 
-        <section className="chart-panel">
-          <div className="timeframe-chips" role="group" aria-label="Select timeframe">
-            {TIMEFRAMES.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={`timeframe-chip ${timeframe === option.key ? "active" : ""}`}
-                style={timeframe === option.key ? { borderColor: themeAccent, boxShadow: `0 0 0 1px ${themeAccent}66 inset` } : undefined}
-                onClick={() => setTimeframe(option.key)}
-                disabled={showSkeleton}
-                aria-pressed={timeframe === option.key}
-              >
-                {option.label}
-              </button>
-            ))}
-            {/* RIVALRY SECTION */}
+        {/* RIVALRY SECTION */}
         <section className="rivalry-panel animate-in" style={{ animationDelay: "0.5s", marginTop: 24 }}>
           <div className="rivalry-header">
             <h3>⚔️ Rivalry: Matt vs Addi</h3>
             <div className="rivalry-score">
-               {/* Matt Wins */}
                <span style={{ color: "#43B0F1" }}>
                  {h2hGames.filter(g => 
-                   (g.white.username.toLowerCase() === "jstmtt" && g.white.result === "win") || 
-                   (g.black.username.toLowerCase() === "jstmtt" && g.black.result === "win")
+                   g.white && g.black && (
+                     (g.white.username.toLowerCase() === "jstmtt" && g.white.result === "win") || 
+                     (g.black.username.toLowerCase() === "jstmtt" && g.black.result === "win")
+                   )
                  ).length} Wins
                </span>
                <span className="score-divider">-</span>
-               {/* Draws */}
                <span style={{ color: "#9ca3af" }}>
                  {h2hGames.filter(g => {
+                    if (!g.white) return false;
                     const res = g.white.result;
-                    return res === "agreed" || res === "repetition" || res === "stalemate" || res === "insufficient" || res === "50move";
+                    return ["agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"].includes(res);
                  }).length} Draws
                </span>
                <span className="score-divider">-</span>
-               {/* Addi Wins */}
                <span style={{ color: "#39d98a" }}>
                  {h2hGames.filter(g => 
-                   (g.white.username.toLowerCase() === "addiprice03" && g.white.result === "win") || 
-                   (g.black.username.toLowerCase() === "addiprice03" && g.black.result === "win")
+                   g.white && g.black && (
+                     (g.white.username.toLowerCase() === "addiprice03" && g.white.result === "win") || 
+                     (g.black.username.toLowerCase() === "addiprice03" && g.black.result === "win")
+                   )
                  ).length} Wins
                </span>
             </div>
@@ -579,8 +566,10 @@ export default function Chess() {
             ) : h2hGames.length === 0 ? (
               <div style={{ padding: 20, textAlign: "center", color: "#64748b" }}>No rapid rated games found yet!</div>
             ) : (
-              h2hGames.map((game) => {
-                // Determine Winner Logic
+              h2hGames.map((game, i) => {
+                // SAFETY CHECKS: If data is corrupt, skip this row to prevent crash
+                if (!game || !game.white || !game.black || !game.end_time) return null;
+
                 const matt = "jstmtt";
                 const isMattWhite = game.white.username.toLowerCase() === matt;
                 const mattResult = isMattWhite ? game.white.result : game.black.result;
@@ -589,9 +578,15 @@ export default function Chess() {
                 if (mattResult === "win") winner = "matt";
                 else if (["agreed", "repetition", "stalemate", "insufficient", "timevsinsufficient", "50move"].includes(mattResult)) winner = "draw";
 
+                // Safe Date Formatting
+                let dateDisplay = "Unknown Date";
+                try {
+                   dateDisplay = formatShortDate(toIsoDate(game.end_time));
+                } catch (e) { /* Ignore bad date */ }
+
                 return (
-                  <a key={game.url} href={game.url} target="_blank" rel="noreferrer" className={`rivalry-card winner-${winner}`}>
-                    <div className="rivalry-date">{formatShortDate(toIsoDate(game.end_time))}</div>
+                  <a key={game.url || i} href={game.url} target="_blank" rel="noreferrer" className={`rivalry-card winner-${winner}`}>
+                    <div className="rivalry-date">{dateDisplay}</div>
                     <div className="rivalry-result">
                       {winner === "matt" && <span style={{color: "#43B0F1"}}>Matt Won</span>}
                       {winner === "addi" && <span style={{color: "#39d98a"}}>Addi Won</span>}
