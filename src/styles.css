@@ -284,6 +284,10 @@ body {
 }
 
 /* Range Selector (Brush) Styling */
+.recharts-brush {
+  user-select: none;
+}
+
 .recharts-brush-traveller {
   cursor: ew-resize;
 }
@@ -301,6 +305,10 @@ body {
 
 .recharts-brush-slide {
   fill-opacity: 0.3;
+}
+
+.recharts-brush .recharts-layer line {
+  stroke-opacity: 0.8;
 }
 
 .recharts-brush-texts text {
