@@ -328,6 +328,7 @@ export default function Chess() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [hiddenPlayers, setHiddenPlayers] = useState(new Set());
   const [timeframe, setTimeframe] = useState("all");
+  const [chartAnimDuration, setChartAnimDuration] = useState(0);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -390,6 +391,14 @@ export default function Chess() {
 
     return () => clearTimeout(timeoutId);
   }, [loadAllData, lastUpdated]);
+
+  useEffect(() => {
+    setChartAnimDuration(1400);
+    const timer = setTimeout(() => {
+      setChartAnimDuration(0);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [timeframe, hiddenPlayers]);
 
   const chartData = useMemo(() => mergeSeries(seriesByUser), [seriesByUser]);
   const showSkeleton = loading && chartData.length === 0;
@@ -636,8 +645,8 @@ export default function Chess() {
                     stroke="none"
                     fill={`url(#fill-${player.username})`}
                     connectNulls
-                    isAnimationActive
-                    animationDuration={1400}
+                    isAnimationActive={chartAnimDuration > 0}
+                    animationDuration={chartAnimDuration}
                     legendType="none"
                   />
                 ))}
@@ -664,8 +673,8 @@ export default function Chess() {
                       );
                     }}
                     connectNulls
-                    isAnimationActive
-                    animationDuration={1300}
+                    isAnimationActive={chartAnimDuration > 0}
+                    animationDuration={chartAnimDuration}
                   />
                 ))}
               </ComposedChart>
