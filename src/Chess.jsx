@@ -26,6 +26,8 @@ const INTERACTION_ANIM_RESET_DELAY = 1500;
 const DATA_REFRESH_ANIM_DURATION = 2800;
 const DATA_REFRESH_ANIM_RESET_DELAY = 3000;
 
+// --- HELPERS ---
+
 function toIsoDate(epochSeconds) {
   if (!epochSeconds) return new Date().toISOString().slice(0, 10);
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
@@ -37,6 +39,8 @@ function nextMidnightDelay() {
   next.setHours(24, 0, 10, 0);
   return Math.max(1000, next.getTime() - now.getTime());
 }
+
+// --- COMPONENTS ---
 
 function AnimatedNumber({ value, duration = 1200 }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -459,10 +463,40 @@ export default function Chess() {
   const themePlayer = activePlayers[0] || PLAYERS[0];
   const themeAccent = themePlayer.color;
 
-  const chartDataForView = useMemo(
-    () => buildChartDataForView(timeframeData, PLAYERS, hiddenPlayers),
-    [timeframeData, hiddenPlayers]
-  );
+  // --- MODIFIED CHART DATA LOGIC: CONNECT TO ZERO ---
+  const chartDataForView = useMemo(() => {
+    const data = buildChartDataForView(timeframeData, PLAYERS, hiddenPlayers);
+    
+    // Only apply the "Zero Start" effect if we are in 'All' view and have data
+    if (timeframe !== 'all' || !data || data.length === 0) {
+      return data;
+    }
+
+    // 1. Clone data to avoid mutating original
+    const extendedData = data.map(d => ({ ...d }));
+
+    // 2. Add a "Genesis" point 1 day before the very first date
+    // This ensures even the first player has a previous point to connect to 0
+    const firstDate = new Date(extendedData[0].date);
+    firstDate.setDate(firstDate.getDate() - 1);
+    extendedData.unshift({
+      date: firstDate.toISOString().slice(0, 10),
+    });
+
+    // 3. For each active player, find their first real rating and set the previous point to 0
+    activePlayers.forEach(player => {
+      const key = player.username;
+      // Find the first index where this player has a numeric rating
+      const firstRealIndex = extendedData.findIndex(row => typeof row[key] === 'number');
+
+      if (firstRealIndex > 0) {
+        // Set the point immediately before to 0
+        extendedData[firstRealIndex - 1][key] = 0;
+      }
+    });
+
+    return extendedData;
+  }, [timeframeData, hiddenPlayers, activePlayers, timeframe]); // Re-run when these change
 
   const yAxisDomain = useMemo(
     () => calculateYAxisDomain(chartDataForView, activePlayers),
