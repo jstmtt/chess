@@ -25,8 +25,11 @@ const INTERACTION_ANIM_RESET_DELAY = 1500;
 const DATA_REFRESH_ANIM_DURATION = 2800;
 const DATA_REFRESH_ANIM_RESET_DELAY = 3000;
 
-// HELPER: Convert epoch seconds to YYYY-MM-DD (Added here to fix the Unknown Date bug)
+// --- HELPERS ---
+
+// Fix for "Unknown Date" crash: Define this right here
 function toIsoDate(epochSeconds) {
+  if (!epochSeconds) return new Date().toISOString().slice(0, 10);
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
 }
 
@@ -36,6 +39,8 @@ function nextMidnightDelay() {
   next.setHours(24, 0, 10, 0);
   return Math.max(1000, next.getTime() - now.getTime());
 }
+
+// --- COMPONENTS ---
 
 function AnimatedNumber({ value, duration = 1200 }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -281,22 +286,19 @@ export default function Chess() {
   const [h2hGames, setH2hGames] = useState([]);
   const [h2hLoading, setH2hLoading] = useState(false);
 
-  // Load Rivalry Data & Calculate Running Score
+  // Load Rivalry Data
   useEffect(() => {
     async function loadRivalry() {
       setH2hLoading(true);
       try {
         const games = await fetchGamesBetween("jstmtt", "addiprice03");
         
-        // CALCULATE RUNNING SCORE
-        // 1. Sort Oldest to Newest to count up
+        // Calculate Running Score
         const sortedOldToNew = [...games].sort((a, b) => a.end_time - b.end_time);
-        
         let mWins = 0;
         let aWins = 0;
         let draws = 0;
 
-        // 2. Map through and attach snapshot score
         const gamesWithScore = sortedOldToNew.map(game => {
             const matt = "jstmtt";
             const isMattWhite = game.white.username.toLowerCase() === matt;
@@ -312,7 +314,7 @@ export default function Chess() {
             };
         });
 
-        // 3. Reverse back to Newest First for display
+        // Reverse for display (Newest First)
         setH2hGames(gamesWithScore.reverse());
 
       } catch (err) {
@@ -739,25 +741,21 @@ export default function Chess() {
                 if (mattResult === "win") winner = "matt";
                 else if (["agreed", "repetition", "stalemate", "insufficient", "timevsinsufficient", "50move"].includes(mattResult)) winner = "draw";
 
-                // Safe Date Formatting
                 let dateDisplay = "Unknown";
                 try {
                    dateDisplay = formatShortDate(toIsoDate(game.end_time));
                 } catch (e) { /* Ignore */ }
 
-                // Get running score from snapshot
                 const score = game.scoreSnapshot || {m:0, d:0, a:0};
 
                 return (
                   <a key={game.url || i} href={game.url} target="_blank" rel="noreferrer" className={`rivalry-card winner-${winner}`}>
                     <div className="rivalry-date">{dateDisplay}</div>
-                    
                     <div className="rivalry-result">
                       {winner === "matt" && <span style={{color: "#90cdf4"}}>MATT WON</span>}
                       {winner === "addi" && <span style={{color: "#68d391"}}>ADDI WON</span>}
                       {winner === "draw" && <span style={{color: "#cbd5e0"}}>DRAW</span>}
                     </div>
-
                     <div className="rivalry-running-score">
                         {score.m} - {score.d} - {score.a}
                     </div>
