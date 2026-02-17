@@ -25,6 +25,11 @@ const INTERACTION_ANIM_RESET_DELAY = 1500;
 const DATA_REFRESH_ANIM_DURATION = 2800;
 const DATA_REFRESH_ANIM_RESET_DELAY = 3000;
 
+// HELPER: Convert epoch seconds to YYYY-MM-DD (Added here to fix the Unknown Date bug)
+function toIsoDate(epochSeconds) {
+  return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
+}
+
 function nextMidnightDelay() {
   const now = new Date();
   const next = new Date(now);
@@ -208,7 +213,6 @@ function StatCard({ player, value, best, gain, color, profile }) {
             {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
           </p>
           
-          {/* NEW BADGE ROW */}
           <div className="stat-badges">
             {best && (
               <div className="stat-badge peak">
@@ -272,17 +276,45 @@ export default function Chess() {
   const chartContainerRef = useRef(null);
   const chartAnimTimeoutRef = useRef(null);
   const hasInteractionAnimationMountedRef = useRef(false);
-  // ... existing state ...
+  
+  // Rivalry State
   const [h2hGames, setH2hGames] = useState([]);
   const [h2hLoading, setH2hLoading] = useState(false);
-  // Load Head-to-Head data specifically for Matt vs Addi
+
+  // Load Rivalry Data & Calculate Running Score
   useEffect(() => {
     async function loadRivalry() {
       setH2hLoading(true);
       try {
-        // Hardcoded usernames for the rivalry
         const games = await fetchGamesBetween("jstmtt", "addiprice03");
-        setH2hGames(games);
+        
+        // CALCULATE RUNNING SCORE
+        // 1. Sort Oldest to Newest to count up
+        const sortedOldToNew = [...games].sort((a, b) => a.end_time - b.end_time);
+        
+        let mWins = 0;
+        let aWins = 0;
+        let draws = 0;
+
+        // 2. Map through and attach snapshot score
+        const gamesWithScore = sortedOldToNew.map(game => {
+            const matt = "jstmtt";
+            const isMattWhite = game.white.username.toLowerCase() === matt;
+            const mattResult = isMattWhite ? game.white.result : game.black.result;
+            
+            if (mattResult === "win") mWins++;
+            else if (["agreed", "repetition", "stalemate", "insufficient", "timevsinsufficient", "50move"].includes(mattResult)) draws++;
+            else aWins++;
+
+            return {
+                ...game,
+                scoreSnapshot: { m: mWins, a: aWins, d: draws }
+            };
+        });
+
+        // 3. Reverse back to Newest First for display
+        setH2hGames(gamesWithScore.reverse());
+
       } catch (err) {
         console.error("Failed to load rivalry", err);
       } finally {
@@ -528,7 +560,6 @@ export default function Chess() {
         </section>
 
         <section className="chart-panel">
-          {/* RESTORED TIMEFRAME BUTTONS */}
           <div className="timeframe-chips" role="group" aria-label="Select timeframe">
             {TIMEFRAMES.map((option) => (
               <button
@@ -658,7 +689,7 @@ export default function Chess() {
           )}
         </section>
 
-        {/* RIVALRY SECTION (Placed safely at the bottom) */}
+        {/* RIVALRY SECTION */}
         <section className="rivalry-panel animate-in" style={{ animationDelay: "0.5s", marginTop: 24 }}>
           <div className="rivalry-header">
             <h3>⚔️ Rivalry: Matt vs Addi</h3>
@@ -708,21 +739,27 @@ export default function Chess() {
                 if (mattResult === "win") winner = "matt";
                 else if (["agreed", "repetition", "stalemate", "insufficient", "timevsinsufficient", "50move"].includes(mattResult)) winner = "draw";
 
-                let dateDisplay = "Unknown Date";
+                // Safe Date Formatting
+                let dateDisplay = "Unknown";
                 try {
                    dateDisplay = formatShortDate(toIsoDate(game.end_time));
-                } catch (e) { /* Ignore bad date */ }
+                } catch (e) { /* Ignore */ }
+
+                // Get running score from snapshot
+                const score = game.scoreSnapshot || {m:0, d:0, a:0};
 
                 return (
                   <a key={game.url || i} href={game.url} target="_blank" rel="noreferrer" className={`rivalry-card winner-${winner}`}>
                     <div className="rivalry-date">{dateDisplay}</div>
+                    
                     <div className="rivalry-result">
-                      {winner === "matt" && <span style={{color: "#43B0F1"}}>Matt Won</span>}
-                      {winner === "addi" && <span style={{color: "#39d98a"}}>Addi Won</span>}
-                      {winner === "draw" && <span style={{color: "#9ca3af"}}>Draw</span>}
+                      {winner === "matt" && <span style={{color: "#90cdf4"}}>MATT WON</span>}
+                      {winner === "addi" && <span style={{color: "#68d391"}}>ADDI WON</span>}
+                      {winner === "draw" && <span style={{color: "#cbd5e0"}}>DRAW</span>}
                     </div>
-                    <div className="rivalry-icon">
-                      {winner === "matt" ? "👑" : winner === "addi" ? "💀" : "🤝"}
+
+                    <div className="rivalry-running-score">
+                        {score.m} - {score.d} - {score.a}
                     </div>
                   </a>
                 );
