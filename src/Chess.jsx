@@ -344,10 +344,15 @@ export default function Chess() {
     try {
       const entries = await Promise.all(
         PLAYERS.map(async (player) => {
+          // Add a timestamp to trick the browser into always fetching fresh data
+          const now = Date.now(); 
+          
           const historyPromise = fetchRapidHistory(player.username);
-          const statsPromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/stats`);
+          
+          // --- CACHE BUSTERS ADDED HERE ---
+          const statsPromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/stats?_=${now}`);
           const profilePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}`);
-          const onlinePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online`)
+          const onlinePromise = fetchJson(`https://api.chess.com/pub/player/${player.username}/is-online?_=${now}`)
             .catch(() => ({ online: false }));
 
           const [rawHistory, stats, profileData, onlineStatus] = await Promise.all([
@@ -357,7 +362,7 @@ export default function Chess() {
             onlinePromise,
           ]);
 
-          // --- FIX: INJECT LIVE RATING INTO CHART ---
+          // --- INJECT LIVE RATING INTO CHART ---
           const history = [...rawHistory]; 
           const currentRating = stats.chess_rapid?.last?.rating ?? null;
           
@@ -365,8 +370,6 @@ export default function Chess() {
             const todayDate = new Date().toISOString().slice(0, 10);
             const lastPoint = history[history.length - 1];
             
-            // If the last point is already today, just update the number. 
-            // If it's from yesterday, add a brand new point for today.
             if (lastPoint && lastPoint.date === todayDate) {
               history[history.length - 1] = { ...lastPoint, rating: currentRating };
             } else {
